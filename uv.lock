@@ -2188,6 +2188,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "dagster" },
+    { name = "dagster-webserver" },
     { name = "data-contract" },
     { name = "data-validation" },
     { name = "duckdb" },
@@ -2215,6 +2216,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "dagster", specifier = "==1.13.23" },
+    { name = "dagster-webserver", specifier = ">=1.13.23,<1.14" },
     { name = "data-contract", directory = "shared/data-contract" },
     { name = "data-validation", directory = "services/validation" },
     { name = "duckdb", specifier = ">=1.0.0" },

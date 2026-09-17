@@ -1,0 +1,11 @@
+.git
+.venv
+.dg
+.tmp_dagster_home_*/
+data
+mlruns
+__pycache__
+*.py[cod]
+.pytest_cache
+.coverage
+.DS_Store

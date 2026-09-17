@@ -1,0 +1,81 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DUCKDB_PATH: /app/data/warehouse.duckdb
+      MODEL_PATH: /app/data/model.joblib
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MLFLOW_EXPERIMENT: molecule-protein-interaction
+    ports:
+      - "8000:8000"
+    volumes:
+      - mlops-data:/app/data
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    restart: unless-stopped
+
+  dagster:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000", "-m", "my_project.definitions"]
+    environment:
+      DAGSTER_HOME: /opt/dagster/dagster_home
+      DUCKDB_PATH: /app/data/warehouse.duckdb
+      MODEL_PATH: /app/data/model.joblib
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MLFLOW_EXPERIMENT: molecule-protein-interaction
+    ports:
+      - "3000:3000"
+    volumes:
+      - mlops-data:/app/data
+      - dagster-home:/opt/dagster/dagster_home
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    restart: unless-stopped
+
+  mlflow:
+    image: python:3.11-slim
+    working_dir: /mlflow
+    command:
+      - sh
+      - -c
+      - >-
+        pip install --no-cache-dir "mlflow>=2.17.0" &&
+        mlflow server --host 0.0.0.0 --port 5000
+        --backend-store-uri sqlite:///mlflow.db
+        --default-artifact-root /mlflow/artifacts
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow-data:/mlflow
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  inference:
+    build:
+      context: .
+      dockerfile: services/inference/Dockerfile
+    environment:
+      MODEL_PATH: /data/model.joblib
+    ports:
+      - "8001:8000"
+    volumes:
+      - mlops-data:/data:ro
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  mlops-data:
+  dagster-home:
+  mlflow-data:

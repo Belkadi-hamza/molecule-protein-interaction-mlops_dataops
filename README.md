@@ -81,10 +81,45 @@ logs metrics and the model artifact to MLflow.
 Start the Dagster UI web server:
 
 ```bash
-dg dev
+uv run dg dev
 ```
 
 Open http://localhost:3000 in your browser to see the project.
+
+### Run everything with Docker Compose
+
+Docker Compose starts the upload/orchestration API, Dagster UI, MLflow, and the
+standalone inference service. DuckDB and the published model are shared through
+a persistent volume.
+
+```bash
+docker compose up --build
+```
+
+Endpoints:
+
+- API and upload workflow: http://localhost:8000
+- Dagster UI: http://localhost:3000
+- MLflow UI: http://localhost:5000
+- Standalone inference: http://localhost:8001/predict
+
+Upload data after the services are healthy:
+
+```bash
+curl -F "file=@shared/cobweb_bdb.csv" http://localhost:8000/data/upload
+```
+
+Stop the stack while preserving data volumes:
+
+```bash
+docker compose down
+```
+
+Remove generated databases and model artifacts too:
+
+```bash
+docker compose down -v
+```
 
 ### Run the APIs
 
