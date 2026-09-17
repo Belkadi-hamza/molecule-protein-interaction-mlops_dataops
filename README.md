@@ -69,7 +69,7 @@ The repository CSV can be loaded and trained locally with:
 
 ```bash
 PYTHONPATH=src uv run python -c \
-	"from my_project.pipeline import load_csv, train_model; load_csv('shared/cobweb_bdb.csv'); print(train_model())"
+	"from my_project.pipeline import training_job; print(training_job.execute_in_process().success)"
 ```
 
 This creates `data/warehouse.duckdb`, `data/model.joblib`, and the SQLite

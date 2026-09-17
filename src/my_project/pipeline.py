@@ -6,7 +6,7 @@ from validation import validate_features
 
 
 class PipelineConfig(Config):
-    source_path: str
+    source_path: str = "shared/cobweb_bdb.csv"
     database_path: str = "data/warehouse.duckdb"
 
 
