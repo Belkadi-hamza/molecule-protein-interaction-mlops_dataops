@@ -1,3 +1,4 @@
+# docker-compose.yml
 services:
   api:
     build:
@@ -29,7 +30,7 @@ services:
       MLFLOW_TRACKING_URI: http://mlflow:5000
       MLFLOW_EXPERIMENT: molecule-protein-interaction
     ports:
-      - "3000:3000"
+      - "3001:3000"
     volumes:
       - mlops-data:/app/data
       - dagster-home:/opt/dagster/dagster_home
