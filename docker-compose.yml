@@ -39,6 +39,25 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  dagster-daemon:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["dagster-daemon", "run"]
+    environment:
+      DAGSTER_HOME: /opt/dagster/dagster_home
+      DUCKDB_PATH: /app/data/warehouse.duckdb
+      MODEL_PATH: /app/data/model.joblib
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MLFLOW_EXPERIMENT: molecule-protein-interaction
+    volumes:
+      - mlops-data:/app/data
+      - dagster-home:/opt/dagster/dagster_home
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    restart: unless-stopped
+
   mlflow:
     image: python:3.11-slim
     working_dir: /mlflow
