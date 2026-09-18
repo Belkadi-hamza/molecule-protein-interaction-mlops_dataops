@@ -49,6 +49,7 @@ directory_type = "project"
 
 [tool.dg.project]
 root_module = "my_project"
+code_location_name = "my_project.definitions"
 registry_modules = [
     "my_project.components.*",
 ]

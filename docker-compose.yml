@@ -22,7 +22,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000", "-m", "my_project.definitions"]
+    command:
+      - sh
+      - -c
+      - >-
+        mkdir -p /opt/dagster/dagster_home &&
+        touch /opt/dagster/dagster_home/dagster.yaml &&
+        dagster-webserver -h 0.0.0.0 -p 3000 -m my_project.definitions
     environment:
       DAGSTER_HOME: /opt/dagster/dagster_home
       DUCKDB_PATH: /app/data/warehouse.duckdb
@@ -43,7 +49,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: ["dagster-daemon", "run"]
+    command:
+      - sh
+      - -c
+      - >-
+        mkdir -p /opt/dagster/dagster_home &&
+        touch /opt/dagster/dagster_home/dagster.yaml &&
+        dagster-daemon run
     environment:
       DAGSTER_HOME: /opt/dagster/dagster_home
       DUCKDB_PATH: /app/data/warehouse.duckdb
