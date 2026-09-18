@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 
 from dagster import DagsterInstance
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse
 from inference.predictor import predict as predict_model
 from pydantic import BaseModel, Field
@@ -29,6 +29,20 @@ class PredictionRequest(BaseModel):
 class PredictionResponse(BaseModel):
     affinity_strength: int
     probability: float = Field(ge=0, le=1)
+
+
+def run_training_pipeline(source_path: str) -> None:
+  result = training_job.execute_in_process(
+    run_config={
+      "ops": {
+        name: {"config": {"source_path": source_path}}
+        for name in ("ingest", "engineer_features", "validate", "train")
+      }
+    },
+    instance=DagsterInstance.ephemeral(),
+  )
+  if not result.success:
+    raise RuntimeError("Dagster training run failed")
 
 
 # ---------------------------------------------------------------------------
@@ -82,11 +96,11 @@ INDEX_HTML = """<!DOCTYPE html>
 
   <section>
     <h2>1. Upload training data (CSV)</h2>
-    <p>Uploading a CSV triggers the Dagster <code>training_job</code> pipeline.</p>
+    <p>Uploading a CSV queues the Dagster <code>training_job</code> pipeline in the background.</p>
     <form id="upload-form">
       <label for="file">CSV file</label>
       <input type="file" id="file" name="file" accept=".csv" required />
-      <button type="submit">Upload &amp; Train</button>
+      <button type="submit">Upload &amp; Queue Training</button>
     </form>
     <p id="upload-status" class="status"></p>
     <pre id="upload-output" hidden></pre>
@@ -156,7 +170,7 @@ INDEX_HTML = """<!DOCTYPE html>
     formData.append("file", fileInput.files[0]);
 
     button.disabled = true;
-    statusEl.textContent = "Uploading and running training job...";
+    statusEl.textContent = "Uploading and queueing training job...";
     statusEl.className = "status";
     outputEl.hidden = true;
 
@@ -167,7 +181,7 @@ INDEX_HTML = """<!DOCTYPE html>
       });
       const data = await res.json();
       if (res.ok) {
-        statusEl.textContent = "Training completed successfully.";
+        statusEl.textContent = "Upload accepted. Training is running in the background.";
         statusEl.className = "status ok";
       } else {
         statusEl.textContent = `Error: ${data.detail || res.statusText}`;
@@ -251,8 +265,11 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.post("/data/upload")
-async def upload_data(file: UploadFile = File(...)) -> dict:
+@app.post("/data/upload", status_code=202)
+async def upload_data(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+) -> dict:
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only .csv files are accepted")
     upload_dir = Path(tempfile.gettempdir()) / "molecule-interaction-uploads"
@@ -260,16 +277,13 @@ async def upload_data(file: UploadFile = File(...)) -> dict:
     destination = upload_dir / Path(file.filename).name
     with destination.open("wb") as output:
         shutil.copyfileobj(file.file, output)
-    result = training_job.execute_in_process(
-        run_config={"ops": {
-            name: {"config": {"source_path": str(destination)}}
-            for name in ("ingest", "engineer_features", "validate", "train")
-        }},
-        instance=DagsterInstance.ephemeral(),
-    )
-    if not result.success:
-        raise HTTPException(status_code=500, detail="Dagster training run failed")
-    return {"status": "completed", "run_id": result.run_id, "dataset": file.filename}
+    await file.close()
+    background_tasks.add_task(run_training_pipeline, str(destination))
+    return {
+        "status": "queued",
+        "dataset": file.filename,
+        "message": "Training has been queued and will continue in the background.",
+    }
 
 
 @app.post("/inference/predict", response_model=PredictionResponse)
